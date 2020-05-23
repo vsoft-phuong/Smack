@@ -1,5 +1,6 @@
 package com.chatcore.smack.ui
 
+import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.View
@@ -17,6 +18,7 @@ class LoginActivity : AppCompatActivity() {
 
     }
     fun signupBtnClicked(view: View){
-
+        val createUserActivity = Intent(this, CreateUserActivity::class.java)
+        startActivity(createUserActivity)
     }
 }
