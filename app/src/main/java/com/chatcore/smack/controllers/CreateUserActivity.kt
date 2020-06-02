@@ -1,4 +1,4 @@
-package com.chatcore.smack.ui
+package com.chatcore.smack.controllers
 
 import android.graphics.Color
 import android.os.Bundle
