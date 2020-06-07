@@ -8,6 +8,10 @@ import android.graphics.Color
 import android.os.Bundle
 import android.view.Menu
 import android.view.View
+import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
+import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.view.GravityCompat
@@ -19,13 +23,21 @@ import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
 import com.chatcore.smack.R
+import com.chatcore.smack.models.Channel
 import com.chatcore.smack.services.AuthService
+import com.chatcore.smack.services.MessageService
 import com.chatcore.smack.services.UserDataService
 import com.chatcore.smack.utilities.BROADCAST_USER_DATA_CHANGE
+import com.chatcore.smack.utilities.SOCKET_URL
 import com.google.android.material.navigation.NavigationView
+import io.socket.client.IO
+import io.socket.emitter.Emitter
+import io.socket.engineio.client.Socket
 import kotlinx.android.synthetic.main.nav_header_main.*
 
 class MainActivity : AppCompatActivity() {
+
+    val socket = IO.socket(SOCKET_URL)
 
     private lateinit var appBarConfiguration: AppBarConfiguration
     lateinit var drawerLayout: DrawerLayout
@@ -45,25 +57,60 @@ class MainActivity : AppCompatActivity() {
         val navController = findNavController(R.id.nav_host_fragment)
         // Passing each menu ID as a set of Ids because each
         // menu should be considered as top level destinations.
-        appBarConfiguration = AppBarConfiguration(setOf(
-            R.id.nav_home,
-            R.id.nav_gallery,
-            R.id.nav_slideshow
-        ), drawerLayout)
+        appBarConfiguration = AppBarConfiguration(
+            setOf(
+                R.id.nav_home,
+                R.id.nav_gallery,
+                R.id.nav_slideshow
+            ), drawerLayout
+        )
         setupActionBarWithNavController(navController, appBarConfiguration)
         navView.setupWithNavController(navController)
 
 
-        LocalBroadcastManager.getInstance(this).registerReceiver(userDataChangeReceiver,
-            IntentFilter(BROADCAST_USER_DATA_CHANGE))
+
     }
 
-    private val userDataChangeReceiver = object : BroadcastReceiver(){
+    override fun onResume() {
+        super.onResume()
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            userDataChangeReceiver,
+            IntentFilter(BROADCAST_USER_DATA_CHANGE)
+        )
+
+
+        socket.connect()
+        socket.on("channelCreated", onNewChannel)
+
+
+    }
+
+    private val onNewChannel = Emitter.Listener {args ->
+//        println(args[0] as String)
+        runOnUiThread {
+            val name = args[0] as String
+            val desc = args[1] as String
+            val id = args[2] as String
+
+            val newChannel = Channel(name, desc, id)
+            MessageService.channels.add(newChannel)
+            Toast.makeText(this, "Created $name", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        socket.disconnect()
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(userDataChangeReceiver)
+    }
+
+    private val userDataChangeReceiver = object : BroadcastReceiver() {
         override fun onReceive(p0: Context?, p1: Intent?) {
-            if(AuthService.isLoggedIn){
+            if (AuthService.isLoggedIn) {
                 nameTxt.text = UserDataService.name
                 emailTxt.text = UserDataService.email
-                val resourceId = resources.getIdentifier(UserDataService.avatarName, "drawable", packageName)
+                val resourceId =
+                    resources.getIdentifier(UserDataService.avatarName, "drawable", packageName)
                 avatarImg.setImageResource(resourceId)
                 avatarImg.setBackgroundColor(UserDataService.returnAvatarColor(UserDataService.avatarColor))
                 loginBtn.text = "Logout"
@@ -83,15 +130,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        if(drawerLayout.isDrawerOpen(GravityCompat.START)){
+        if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
             drawerLayout.closeDrawer(GravityCompat.START)
-        }else {
+        } else {
             super.onBackPressed()
         }
     }
 
-    fun loginBtnClicked(view: View){
-        if(AuthService.isLoggedIn) {
+    fun loginBtnClicked(view: View) {
+        if (AuthService.isLoggedIn) {
             //logout
             UserDataService.logout()
             nameTxt.text = "Login"
@@ -99,17 +146,49 @@ class MainActivity : AppCompatActivity() {
             avatarImg.setImageResource(R.drawable.profiledefault)
             avatarImg.setBackgroundColor(Color.TRANSPARENT)
             loginBtn.text = "Login"
-        }else{
+        } else {
             val loginIntent = Intent(this, LoginActivity::class.java)
             startActivity(loginIntent)
         }
     }
 
-    fun addChannelImgClicked(view: View){
+    fun addChannelImgClicked(view: View) {
+        if (AuthService.isLoggedIn) {
+            val builder = AlertDialog.Builder(this)
+            val dialogView = layoutInflater.inflate(R.layout.add_channel_dialog, null)
 
+            builder.setView(dialogView)
+                .setPositiveButton("Add") { dialogInterface, i ->
+                    val name = dialogView.findViewById<EditText>(R.id.editChannelName)
+                    val description = dialogView.findViewById<EditText>(R.id.editChannelDescription)
+
+                    val channelName = name.text.toString()
+                    val channelDesc = description.text.toString()
+
+                    //create channel with name and description
+                    socket.emit("newChannel", channelName, channelDesc)
+
+                    hideKeyboard()
+                    dialogInterface.dismiss()
+
+                }
+                .setNegativeButton("Sign in") { dialogInterface, i ->
+                    hideKeyboard()
+                    dialogInterface.dismiss()
+                }
+                .show()
+        }
     }
 
-    fun sendBtnClick(view: View){
+    fun sendBtnClick(view: View) {
+        hideKeyboard()
+    }
 
+    fun hideKeyboard(){
+        val inputManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        if(inputManager.isAcceptingText){
+            inputManager.hideSoftInputFromWindow(currentFocus?.windowToken, 0)
+
+        }
     }
 }
