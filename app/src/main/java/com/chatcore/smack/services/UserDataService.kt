@@ -1,6 +1,7 @@
 package com.chatcore.smack.services
 
 import android.graphics.Color
+import com.chatcore.smack.controllers.App
 import java.util.*
 
 object UserDataService {
@@ -17,9 +18,9 @@ object UserDataService {
         email = ""
         name = ""
 
-        AuthService.authToken = ""
-        AuthService.isLoggedIn = false
-        AuthService.userEmail = ""
+        App.prefs.authToken = ""
+        App.prefs.userEmail = ""
+        App.prefs.isLoggedIn = false
     }
 
     fun returnAvatarColor(components: String): Int {

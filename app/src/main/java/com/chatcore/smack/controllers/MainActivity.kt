@@ -81,6 +81,14 @@ class MainActivity : AppCompatActivity() {
         socket.connect()
         socket.on("channelCreated", onNewChannel)
 
+        if (App.prefs.isLoggedIn) {
+            App.prefs.userEmail?.let {
+                AuthService.findUserByEmail(this, it) { found ->
+
+                }
+            }
+        }
+
     }
 
     override fun onResume() {
@@ -114,7 +122,7 @@ class MainActivity : AppCompatActivity() {
 
     private val userDataChangeReceiver = object : BroadcastReceiver() {
         override fun onReceive(p0: Context?, p1: Intent?) {
-            if (AuthService.isLoggedIn) {
+            if (App.prefs.isLoggedIn) {
                 nameTxt.text = UserDataService.name
                 emailTxt.text = UserDataService.email
                 val resourceId =
@@ -126,7 +134,7 @@ class MainActivity : AppCompatActivity() {
                 //load list channel
                 p0?.let {
                     MessageService.getChannels(it) { success ->
-                        if(success){
+                        if (success) {
                             channelAdapter.notifyDataSetChanged()
                         }
                     }
@@ -155,7 +163,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun loginBtnClicked(view: View) {
-        if (AuthService.isLoggedIn) {
+        if (App.prefs.isLoggedIn) {
             //logout
             UserDataService.logout()
             nameTxt.text = "Login"
@@ -172,7 +180,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun addChannelImgClicked(view: View) {
-        if (AuthService.isLoggedIn) {
+        if (App.prefs.isLoggedIn) {
             val builder = AlertDialog.Builder(this)
             val dialogView = layoutInflater.inflate(R.layout.add_channel_dialog, null)
 
