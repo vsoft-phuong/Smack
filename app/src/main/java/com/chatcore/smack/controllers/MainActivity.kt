@@ -1,6 +1,10 @@
 package com.chatcore.smack.controllers
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.graphics.Color
 import android.os.Bundle
 import android.view.Menu
 import android.view.View
@@ -8,13 +12,18 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
 import com.chatcore.smack.R
+import com.chatcore.smack.services.AuthService
+import com.chatcore.smack.services.UserDataService
+import com.chatcore.smack.utilities.BROADCAST_USER_DATA_CHANGE
 import com.google.android.material.navigation.NavigationView
+import kotlinx.android.synthetic.main.nav_header_main.*
 
 class MainActivity : AppCompatActivity() {
 
@@ -43,6 +52,23 @@ class MainActivity : AppCompatActivity() {
         ), drawerLayout)
         setupActionBarWithNavController(navController, appBarConfiguration)
         navView.setupWithNavController(navController)
+
+
+        LocalBroadcastManager.getInstance(this).registerReceiver(userDataChangeReceiver,
+            IntentFilter(BROADCAST_USER_DATA_CHANGE))
+    }
+
+    private val userDataChangeReceiver = object : BroadcastReceiver(){
+        override fun onReceive(p0: Context?, p1: Intent?) {
+            if(AuthService.isLoggedIn){
+                nameTxt.text = UserDataService.name
+                emailTxt.text = UserDataService.email
+                val resourceId = resources.getIdentifier(UserDataService.avatarName, "drawable", packageName)
+                avatarImg.setImageResource(resourceId)
+                avatarImg.setBackgroundColor(UserDataService.returnAvatarColor(UserDataService.avatarColor))
+                loginBtn.text = "Logout"
+            }
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -65,8 +91,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun loginBtnClicked(view: View){
-        val loginIntent = Intent(this, LoginActivity::class.java)
-        startActivity(loginIntent)
+        if(AuthService.isLoggedIn) {
+            //logout
+            UserDataService.logout()
+            nameTxt.text = "Login"
+            emailTxt.text = ""
+            avatarImg.setImageResource(R.drawable.profiledefault)
+            avatarImg.setBackgroundColor(Color.TRANSPARENT)
+            loginBtn.text = "Login"
+        }else{
+            val loginIntent = Intent(this, LoginActivity::class.java)
+            startActivity(loginIntent)
+        }
     }
 
     fun addChannelImgClicked(view: View){

@@ -1,12 +1,15 @@
 package com.chatcore.smack.controllers
 
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.view.View
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.chatcore.smack.R
 import com.chatcore.smack.services.AuthService
-import com.chatcore.smack.services.UserDataService
+import com.chatcore.smack.utilities.BROADCAST_USER_DATA_CHANGE
 import kotlinx.android.synthetic.main.activity_create_user.*
 import java.util.*
 
@@ -15,6 +18,7 @@ class CreateUserActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_create_user)
+        progressBar.visibility = View.INVISIBLE
     }
 
     var avatarUser = "profiledefault"
@@ -52,36 +56,79 @@ class CreateUserActivity : AppCompatActivity() {
     }
 
     fun createUserBtnClicked(view: View) {
+        enableProgress(true)
         val username = usernameEdt.text.toString()
         val email = emailEdt.text.toString()
         val password = passwordEdt.text.toString()
-        AuthService.registerUser(this, email, password) { registerSuccess ->
-            if (registerSuccess) {
-                AuthService.loginUser(this, email, password) { loginSuccess ->
-                    if (loginSuccess) {
+
+        if (username.isNotEmpty() && email.isNotEmpty() && password.isNotEmpty()) {
+            AuthService.registerUser(this, email, password) { registerSuccess ->
+                if (registerSuccess) {
+                    AuthService.loginUser(this, email, password) { loginSuccess ->
+                        if (loginSuccess) {
 //                        println(AuthService.userEmail)
 //                        println(AuthService.authToken)
-                        AuthService.createUser(
-                            this,
-                            username,
-                            email,
-                            avatarUser,
-                            avatarColor
-                        ) { createSuccess ->
-                            if (createSuccess) {
-                                println(UserDataService.avatarName)
-                                println(UserDataService.avatarColor)
-                                println(UserDataService.name)
-                                finish()
-                            }
+                            AuthService.createUser(
+                                this,
+                                username,
+                                email,
+                                avatarUser,
+                                avatarColor
+                            ) { createSuccess ->
+                                if (createSuccess) {
+//                                println(UserDataService.avatarName)
+//                                println(UserDataService.avatarColor)
+//                                println(UserDataService.name)
 
+                                    val userDataChange = Intent(BROADCAST_USER_DATA_CHANGE)
+                                    LocalBroadcastManager.getInstance(this).sendBroadcast(userDataChange)
+
+                                    enableProgress(false)
+                                    finish()
+                                } else {
+                                    errorToast()
+                                }
+
+                            }
+                        } else {
+                            errorToast()
                         }
                     }
+                } else {
+                    errorToast()
                 }
-            }
 
+            }
+        } else {
+            Toast.makeText(
+                this, "Please fill in all",
+                Toast.LENGTH_SHORT
+            ).show()
+            enableProgress(false)
         }
+
+
     }
 
+    fun errorToast() {
+        Toast.makeText(
+            this, "Something went wrong, please try again.",
+            Toast.LENGTH_SHORT
+        ).show()
+        enableProgress(false)
+    }
+
+
+    fun enableProgress(enable: Boolean) {
+        if (enable) {
+            progressBar.visibility = View.VISIBLE
+        } else {
+            progressBar.visibility = View.INVISIBLE
+        }
+
+        createUserBtn.isEnabled = !enable
+        avatarImg.isEnabled = !enable
+        generateBackgroundBtn.isEnabled = !enable
+    }
 
 }
