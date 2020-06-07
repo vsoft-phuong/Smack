@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.View
 import android.view.inputmethod.InputMethodManager
+import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -32,12 +33,18 @@ import com.chatcore.smack.utilities.SOCKET_URL
 import com.google.android.material.navigation.NavigationView
 import io.socket.client.IO
 import io.socket.emitter.Emitter
-import io.socket.engineio.client.Socket
+import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.nav_header_main.*
 
 class MainActivity : AppCompatActivity() {
 
     val socket = IO.socket(SOCKET_URL)
+    lateinit var channelAdapter: ArrayAdapter<Channel>
+    private fun setupAdapter() {
+        channelAdapter =
+            ArrayAdapter(this, android.R.layout.simple_list_item_1, MessageService.channels)
+        channel_list.adapter = channelAdapter
+    }
 
     private lateinit var appBarConfiguration: AppBarConfiguration
     lateinit var drawerLayout: DrawerLayout
@@ -68,6 +75,11 @@ class MainActivity : AppCompatActivity() {
         navView.setupWithNavController(navController)
 
 
+        setupAdapter()
+
+
+        socket.connect()
+        socket.on("channelCreated", onNewChannel)
 
     }
 
@@ -77,15 +89,9 @@ class MainActivity : AppCompatActivity() {
             userDataChangeReceiver,
             IntentFilter(BROADCAST_USER_DATA_CHANGE)
         )
-
-
-        socket.connect()
-        socket.on("channelCreated", onNewChannel)
-
-
     }
 
-    private val onNewChannel = Emitter.Listener {args ->
+    private val onNewChannel = Emitter.Listener { args ->
 //        println(args[0] as String)
         runOnUiThread {
             val name = args[0] as String
@@ -95,11 +101,13 @@ class MainActivity : AppCompatActivity() {
             val newChannel = Channel(name, desc, id)
             MessageService.channels.add(newChannel)
             Toast.makeText(this, "Created $name", Toast.LENGTH_SHORT).show()
+            channelAdapter.notifyDataSetChanged()
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        socket.off("channelCreated", onNewChannel)
         socket.disconnect()
         LocalBroadcastManager.getInstance(this).unregisterReceiver(userDataChangeReceiver)
     }
@@ -114,6 +122,15 @@ class MainActivity : AppCompatActivity() {
                 avatarImg.setImageResource(resourceId)
                 avatarImg.setBackgroundColor(UserDataService.returnAvatarColor(UserDataService.avatarColor))
                 loginBtn.text = "Logout"
+
+                //load list channel
+                p0?.let {
+                    MessageService.getChannels(it) { success ->
+                        if(success){
+                            channelAdapter.notifyDataSetChanged()
+                        }
+                    }
+                }
             }
         }
     }
@@ -146,6 +163,8 @@ class MainActivity : AppCompatActivity() {
             avatarImg.setImageResource(R.drawable.profiledefault)
             avatarImg.setBackgroundColor(Color.TRANSPARENT)
             loginBtn.text = "Login"
+            MessageService.channels.clear()
+            channelAdapter.notifyDataSetChanged()
         } else {
             val loginIntent = Intent(this, LoginActivity::class.java)
             startActivity(loginIntent)
@@ -184,9 +203,9 @@ class MainActivity : AppCompatActivity() {
         hideKeyboard()
     }
 
-    fun hideKeyboard(){
+    fun hideKeyboard() {
         val inputManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        if(inputManager.isAcceptingText){
+        if (inputManager.isAcceptingText) {
             inputManager.hideSoftInputFromWindow(currentFocus?.windowToken, 0)
 
         }
