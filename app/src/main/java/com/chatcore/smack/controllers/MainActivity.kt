@@ -25,6 +25,7 @@ import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
 import com.chatcore.smack.R
 import com.chatcore.smack.models.Channel
+import com.chatcore.smack.models.Message
 import com.chatcore.smack.services.AuthService
 import com.chatcore.smack.services.MessageService
 import com.chatcore.smack.services.UserDataService
@@ -88,6 +89,7 @@ class MainActivity : AppCompatActivity() {
 
         socket.connect()
         socket.on("channelCreated", onNewChannel)
+        socket.on("messageCreated", onNewMessage)
 
         if (App.prefs.isLoggedIn) {
             App.prefs.userEmail?.let {
@@ -107,19 +109,7 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private val onNewChannel = Emitter.Listener { args ->
-//        println(args[0] as String)
-        runOnUiThread {
-            val name = args[0] as String
-            val desc = args[1] as String
-            val id = args[2] as String
 
-            val newChannel = Channel(name, desc, id)
-            MessageService.channels.add(newChannel)
-            Toast.makeText(this, "Created $name", Toast.LENGTH_SHORT).show()
-            channelAdapter.notifyDataSetChanged()
-        }
-    }
 
     override fun onDestroy() {
         super.onDestroy()
@@ -218,9 +208,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun sendBtnClick(view: View) {
-        hideKeyboard()
-    }
 
     fun hideKeyboard() {
         val inputManager = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
@@ -232,5 +219,75 @@ class MainActivity : AppCompatActivity() {
 
     fun updateWithChannel() {
         channelNameTxt.text = "#${selectedChannel?.name}"
+        //download messages
+        if(selectedChannel!=null){
+            MessageService.getMessages(selectedChannel!!.id){complete ->
+                if(complete){
+                    for (message in MessageService.messages){
+                        println(message.message)
+                    }
+                }
+            }
+        }
+    }
+
+    fun sendBtnClick(view: View) {
+        hideKeyboard()
+        if (App.prefs.isLoggedIn && messageEdt.text.isNotEmpty() && selectedChannel != null) {
+            val userId = UserDataService.id
+            val channelId = selectedChannel!!.id
+            socket.emit(
+                "newMessage", messageEdt.text.toString(),
+                userId, channelId, UserDataService.name, UserDataService.avatarName,
+                UserDataService.avatarColor
+            )
+            messageEdt.text.clear()
+        }
+    }
+
+    private val onNewChannel = Emitter.Listener { args ->
+//        println(args[0] as String)
+        if(App.prefs.isLoggedIn){
+            runOnUiThread {
+                val name = args[0] as String
+                val desc = args[1] as String
+                val id = args[2] as String
+
+                val newChannel = Channel(name, desc, id)
+                MessageService.channels.add(newChannel)
+                Toast.makeText(this, "Created $name", Toast.LENGTH_SHORT).show()
+                channelAdapter.notifyDataSetChanged()
+            }
+        }
+    }
+    private val onNewMessage = Emitter.Listener {args ->
+        if(App.prefs.isLoggedIn){
+            runOnUiThread {
+                val channelid = args[2] as String
+                if(channelid == selectedChannel?.id) {
+                    val msgBody = args[0] as String
+                    val userName = args[3] as String
+                    val userAvatar = args[4] as String
+                    val userAvatarColor = args[5] as String
+                    val id = args[6] as String
+                    val timestamp = args[7] as String
+
+                    val newMessage = Message(
+                        msgBody,
+                        userName,
+                        channelid,
+                        userAvatar,
+                        userAvatarColor,
+                        id,
+                        timestamp
+                    )
+                    MessageService.messages.add(newMessage)
+                    println(newMessage.message)
+                }
+
+
+            }
+        }
+
     }
 }
