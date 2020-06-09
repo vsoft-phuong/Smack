@@ -23,7 +23,9 @@ import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.chatcore.smack.R
+import com.chatcore.smack.adapters.MessageAdapter
 import com.chatcore.smack.models.Channel
 import com.chatcore.smack.models.Message
 import com.chatcore.smack.services.AuthService
@@ -44,10 +46,17 @@ class MainActivity : AppCompatActivity() {
 
     val socket = IO.socket(SOCKET_URL)
     lateinit var channelAdapter: ArrayAdapter<Channel>
+    lateinit var messageAdapter: MessageAdapter
+
     private fun setupAdapter() {
         channelAdapter =
             ArrayAdapter(this, android.R.layout.simple_list_item_1, MessageService.channels)
         channel_list.adapter = channelAdapter
+
+        messageAdapter = MessageAdapter(this, MessageService.messages)
+        messageRv.adapter = messageAdapter
+        val layoutManager = LinearLayoutManager(this)
+        messageRv.layoutManager = layoutManager
     }
 
     private lateinit var appBarConfiguration: AppBarConfiguration
@@ -110,7 +119,6 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-
     override fun onDestroy() {
         super.onDestroy()
         socket.off("channelCreated", onNewChannel)
@@ -167,6 +175,10 @@ class MainActivity : AppCompatActivity() {
         if (App.prefs.isLoggedIn) {
             //logout
             UserDataService.logout()
+            //logout clear list thi ds refresh lai
+            channelAdapter.notifyDataSetChanged()
+            messageAdapter.notifyDataSetChanged()
+
             nameTxt.text = "Login"
             emailTxt.text = ""
             avatarImg.setImageResource(R.drawable.profiledefault)
@@ -220,11 +232,15 @@ class MainActivity : AppCompatActivity() {
     fun updateWithChannel() {
         channelNameTxt.text = "#${selectedChannel?.name}"
         //download messages
-        if(selectedChannel!=null){
-            MessageService.getMessages(selectedChannel!!.id){complete ->
-                if(complete){
-                    for (message in MessageService.messages){
+        if (selectedChannel != null) {
+            MessageService.getMessages(selectedChannel!!.id) { complete ->
+                if (complete) {
+                    /*for (message in MessageService.messages){
                         println(message.message)
+                    }*/
+                    messageAdapter.notifyDataSetChanged()
+                    if (messageAdapter.itemCount > 0) {
+                        messageRv.smoothScrollToPosition(messageAdapter.itemCount - 1)
                     }
                 }
             }
@@ -247,7 +263,7 @@ class MainActivity : AppCompatActivity() {
 
     private val onNewChannel = Emitter.Listener { args ->
 //        println(args[0] as String)
-        if(App.prefs.isLoggedIn){
+        if (App.prefs.isLoggedIn) {
             runOnUiThread {
                 val name = args[0] as String
                 val desc = args[1] as String
@@ -260,11 +276,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-    private val onNewMessage = Emitter.Listener {args ->
-        if(App.prefs.isLoggedIn){
+    private val onNewMessage = Emitter.Listener { args ->
+        if (App.prefs.isLoggedIn) {
             runOnUiThread {
                 val channelid = args[2] as String
-                if(channelid == selectedChannel?.id) {
+                if (channelid == selectedChannel?.id) {
                     val msgBody = args[0] as String
                     val userName = args[3] as String
                     val userAvatar = args[4] as String
@@ -282,7 +298,9 @@ class MainActivity : AppCompatActivity() {
                         timestamp
                     )
                     MessageService.messages.add(newMessage)
-                    println(newMessage.message)
+//                    println(newMessage.message)
+                    messageAdapter.notifyDataSetChanged()
+                    messageRv.smoothScrollToPosition(messageAdapter.itemCount - 1)
                 }
 
 
