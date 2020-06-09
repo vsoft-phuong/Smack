@@ -8,7 +8,6 @@ import com.android.volley.Request
 import com.android.volley.Response
 import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.StringRequest
-import com.android.volley.toolbox.Volley
 import com.chatcore.smack.controllers.App
 import com.chatcore.smack.utilities.*
 import org.json.JSONException
@@ -21,7 +20,6 @@ object AuthService {
 //    var authToken = ""
 
     fun registerUser(
-        context: Context,
         email: String,
         password: String,
         complete: (Boolean) -> Unit
@@ -53,7 +51,7 @@ object AuthService {
         App.prefs.requestQueue.add(registerRequest)
     }
 
-    fun loginUser(context: Context, email: String, password: String, complete: (Boolean) -> Unit) {
+    fun loginUser(email: String, password: String, complete: (Boolean) -> Unit) {
         //param json string
         val jsonBody = JSONObject()
         jsonBody.put("email", email)
@@ -91,7 +89,7 @@ object AuthService {
     }
 
     fun createUser(
-        context: Context, name: String, email: String,
+        name: String, email: String,
         avatarName: String, avatarColor: String, complete: (Boolean) -> Unit
     ) {
         //param json string
@@ -144,9 +142,9 @@ object AuthService {
     }
 
 
-    fun findUserByEmail(context: Context, email: String, complete: (Boolean) -> Unit){
+    fun findUserByEmail(context: Context, email: String, complete: (Boolean) -> Unit) {
         val findUserRequest = object : JsonObjectRequest(Method.GET, "$URL_GET_USER$email",
-        null, Response.Listener {response ->
+            null, Response.Listener { response ->
                 try {
 
                     UserDataService.name = response.getString("name")
@@ -164,14 +162,15 @@ object AuthService {
                     Log.d("JSON", "EXC " + e.localizedMessage)
                     complete(false)
                 }
-            }, Response.ErrorListener {error ->
+            }, Response.ErrorListener { error ->
                 Log.d("ERROR", "Could not find user: $error")
                 complete(false)
-            }){
+            }) {
 
             override fun getBodyContentType(): String {
                 return "application/json; charset=utf-8"
             }
+
             override fun getHeaders(): MutableMap<String, String> {
 //                return super.getHeaders()
                 val headers = HashMap<String, String>()

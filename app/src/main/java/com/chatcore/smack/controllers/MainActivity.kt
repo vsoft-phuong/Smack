@@ -34,9 +34,12 @@ import com.google.android.material.navigation.NavigationView
 import io.socket.client.IO
 import io.socket.emitter.Emitter
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.content_main.*
 import kotlinx.android.synthetic.main.nav_header_main.*
 
 class MainActivity : AppCompatActivity() {
+
+    var selectedChannel: Channel? = null
 
     val socket = IO.socket(SOCKET_URL)
     lateinit var channelAdapter: ArrayAdapter<Channel>
@@ -76,6 +79,11 @@ class MainActivity : AppCompatActivity() {
 
 
         setupAdapter()
+        channel_list.setOnItemClickListener { _, _, i, _ ->
+            selectedChannel = MessageService.channels.get(i)
+            drawerLayout.closeDrawer(GravityCompat.START)
+            updateWithChannel()
+        }
 
 
         socket.connect()
@@ -132,16 +140,19 @@ class MainActivity : AppCompatActivity() {
                 loginBtn.text = "Logout"
 
                 //load list channel
-                p0?.let {
-                    MessageService.getChannels(it) { success ->
-                        if (success) {
+                MessageService.getChannels() { success ->
+                    if (success) {
+                        if (MessageService.channels.count() > 0) {
+                            selectedChannel = MessageService.channels[0]
                             channelAdapter.notifyDataSetChanged()
+                            updateWithChannel()
                         }
                     }
                 }
             }
         }
     }
+
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         // Inflate the menu; this adds items to the action bar if it is present.
@@ -185,7 +196,7 @@ class MainActivity : AppCompatActivity() {
             val dialogView = layoutInflater.inflate(R.layout.add_channel_dialog, null)
 
             builder.setView(dialogView)
-                .setPositiveButton("Add") { dialogInterface, i ->
+                .setPositiveButton("Add") { dialogInterface, _ ->
                     val name = dialogView.findViewById<EditText>(R.id.editChannelName)
                     val description = dialogView.findViewById<EditText>(R.id.editChannelDescription)
 
@@ -199,7 +210,7 @@ class MainActivity : AppCompatActivity() {
                     dialogInterface.dismiss()
 
                 }
-                .setNegativeButton("Sign in") { dialogInterface, i ->
+                .setNegativeButton("Sign in") { dialogInterface, _ ->
                     hideKeyboard()
                     dialogInterface.dismiss()
                 }
@@ -217,5 +228,9 @@ class MainActivity : AppCompatActivity() {
             inputManager.hideSoftInputFromWindow(currentFocus?.windowToken, 0)
 
         }
+    }
+
+    fun updateWithChannel() {
+        channelNameTxt.text = "#${selectedChannel?.name}"
     }
 }
